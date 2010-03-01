@@ -1,0 +1,31 @@
+---
+abstract: 'Convert numbers into words in various constructed languages'
+author:
+  - 'Nick Patch, <n@atemoya.net>'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+  Test::More: 0.40
+  ok: 0.01
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+generated_by: 'Module::Install version 0.93'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Lingua-Conlang-Numbers
+no_index:
+  directory:
+    - inc
+    - t
+recommends:
+  Readonly::XS: 1.02
+requires:
+  Readonly: 1.03
+  Regexp::Common: 0.03
+  perl: 5.10.0
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: http://github.com/patch/lingua-conlang-numbers
+version: 0.01

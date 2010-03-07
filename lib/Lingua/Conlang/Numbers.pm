@@ -1,6 +1,6 @@
 package Lingua::Conlang::Numbers;
 
-use 5.010;
+use 5.008_001;
 use strict;
 use warnings;
 use Lingua::EO::Numbers       qw( :all );
@@ -11,7 +11,7 @@ use base qw( Exporter );
 our @EXPORT_OK = qw( num2conlang num2conlang_ordinal num2conlang_languages );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 my @languages = qw< eo jbo tokipona >;
 my %aliases = (
@@ -21,7 +21,7 @@ my %aliases = (
 
 sub num2conlang           { _num2conlang(q{},         @_) }
 sub num2conlang_ordinal   { _num2conlang(q{_ordinal}, @_) }
-sub num2conlang_languages { @languages                }
+sub num2conlang_languages { @languages                    }
 
 sub _num2conlang {
     # @_ will be used with goto
@@ -31,16 +31,14 @@ sub _num2conlang {
     $language = lc $language;
     $language =~ tr{ _}{}d;
 
-    given ($language) {
-        when (\@languages) {
-            goto &{ 'num2' . $language . $suffix };
-        }
-        when (\%aliases) {
-            goto &{ 'num2' . $aliases{$language} . $suffix };
-        }
-        default {
-            return;
-        }
+    if (grep { $_ eq $language } @languages) {
+        goto &{ 'num2' . $language . $suffix };
+    }
+    elsif ( exists $aliases{$language} ) {
+        goto &{ 'num2' . $aliases{$language} . $suffix };
+    }
+    else {
+        return;
     }
 }
 
@@ -53,6 +51,10 @@ __END__
 =head1 NAME
 
 Lingua::Conlang::Numbers - Convert numbers into words in various constructed languages
+
+=head1 VERSION
+
+This document describes Lingua::Conlang::Numbers version 0.02.
 
 =head1 SYNOPSIS
 
@@ -138,7 +140,7 @@ L<Lingua::Any::Numbers>
 
 =head1 AUTHOR
 
-Nick Patch, E<lt>n@atemoya.netE<gt>
+Nick Patch <n@atemoya.net>
 
 =head1 COPYRIGHT AND LICENSE
 

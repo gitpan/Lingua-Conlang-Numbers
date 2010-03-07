@@ -1,6 +1,6 @@
 package Lingua::EO::Numbers;
 
-use 5.010;
+use 5.008_001;
 use strict;
 use warnings;
 use utf8;
@@ -11,13 +11,23 @@ use base qw( Exporter );
 our @EXPORT_OK = qw( num2eo num2eo_ordinal );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
-Readonly my $SPACE     => q{ };
-Readonly my $EMPTY_STR => q{};
-Readonly my @NAMES1    => qw< nul unu du tri kvar kvin ses sep ok naŭ >;
-Readonly my @NAMES2    => qw< dek cent mil >;
-Readonly my %WORDS     => (
+Readonly my $EMPTY_STR     => q{};
+Readonly my $SPACE         => q{ };
+Readonly my $PLURAL_SUFFIX => q{j};
+
+Readonly my @NAMES1 => qw< nul unu du tri kvar kvin ses sep ok naŭ >;
+Readonly my @NAMES2 => $EMPTY_STR, qw< dek cent >;
+Readonly my @GROUPS => (
+    undef, qw< mil miliono miliardo >,
+    map { $_ . 'iliono' } qw<
+        b tr kvadr kvint sekst sept okt non dec undec duodec tredec
+        kvatuordec kvindec seksdec septendec oktodec novemdec vigint
+    >
+);
+
+Readonly my %WORDS => (
     ',' => 'komo',
     '-' => 'negativa',
     '+' => 'positiva',
@@ -25,70 +35,136 @@ Readonly my %WORDS     => (
     NaN => 'ne nombro',
 );
 
+# convert number to words
 sub num2eo {
     my ($number) = @_;
     my @names;
 
     return unless defined $number;
+    return $WORDS{NaN} if $number eq 'NaN';
 
-    given ($number) {
-        when ($_ eq 'NaN') {
-            push @names, $WORDS{NaN};
+    if ($number =~ m/^ ( [-+] )? inf $/ixms) {
+        # infinity
+        push @names, $1 ? $WORDS{$1} : (), $WORDS{inf};
+    }
+    elsif ($number =~ m/^ $RE{num}{real}{-radix=>'[,.]'}{-keep} $/xms) {
+        my ($sign, $int, $frac) = ($2, $4, $6);
+
+        # greater than 999,999 vigintillion (long scale) not supported
+        return if length $int > 126;
+
+        # sign and integer
+        unshift @names, $WORDS{$sign} || (), _convert_int($int);
+
+        # fraction
+        if (defined $frac && $frac ne $EMPTY_STR) {
+            push @names, (
+                $WORDS{','},
+                map { $NAMES1[$_] } split $EMPTY_STR, $frac,
+            );
         }
-        when (m/^ (?<sign> [-+] )? inf $/ixms) {
-            push @names, $+{sign} ? $WORDS{ $+{sign} } : (), $WORDS{inf};
-        }
-        when (m/^ $RE{num}{real}{-radix=>'[,.]'}{-keep} $/xms) {
-            my ($sign, $int, $frac) = ($2, $4, $6);
-            my @digits = split $EMPTY_STR, $int // $EMPTY_STR;
-
-            # numbers >= a million not currently supported
-            return if @digits > 6;
-
-            DIGIT:
-            for my $i (1 .. @digits) {
-                my $digit = $digits[-$i];
-                my $name  = $NAMES1[$digit];
-
-                # skip 0 unless it is the entire number
-                next DIGIT
-                    if !$digit
-                    && @digits != 1
-                    && !($i == 4 && @digits > 4);
-
-                unshift(
-                    @names,
-                    $i == 1 ? $name : (
-                        $digit && (
-                            $digit != 1 || $i == 4 && @digits > 4
-                        ) ? $name . ($i == 4 ? $SPACE : $EMPTY_STR)
-                          : $EMPTY_STR
-                    ) . $NAMES2[ abs($i) - ($i < 5 ? 2 : 5) ],
-                );
-            }
-
-            if (defined $frac && $frac ne $EMPTY_STR) {
-                push(
-                    @names,
-                    $WORDS{','},
-                    map { $NAMES1[$_] } split $EMPTY_STR, $frac,
-                );
-            }
-
-            unshift @names, $WORDS{$sign} || ();
-        }
-        default { return }
+    }
+    else {
+        return;
     }
 
     return join $SPACE, @names;
 }
 
+# convert number to ordinal words
 sub num2eo_ordinal {
     my ($number) = @_;
     my $name = num2eo($number);
+
     return unless defined $name;
-    $name =~ s{ ( oj? | a )? [ ] }{-}gxms;
+
+    for ($name) {
+        s{ (?: oj? | a ) \b }{}gxms; # remove word suffixes
+        tr{ }{-};
+    }
+
     return $name . 'a';
+}
+
+# convert integers to words
+sub _convert_int {
+    my ($int) = @_;
+    my @number_groups = _split_groups($int);
+    my @name_groups;
+    my $group_count = 0;
+
+    GROUP:
+    for my $group (reverse @number_groups) {
+        # skip zeros unless the whole integer is zero
+        next GROUP if $group == 0 && $int;
+
+        my $type = $GROUPS[$group_count];
+
+        # pluralize nouns
+        if ($type && $type ne $GROUPS[1] && $group > 1) {
+            $type .= $PLURAL_SUFFIX;
+        }
+
+        my @names = do {
+            # use thousand instead of one thousand
+            if ($group == 1 && $type eq $GROUPS[1]) { () }
+
+            # groups for billions and greater contain thousands sub-groups
+            elsif (length $group > 3) { _convert_int(   $group ) }
+            else                      { _convert_group( $group ) }
+        };
+
+        unshift @name_groups, @names, $type ? $type : ();
+    }
+    continue {
+        $group_count++;
+    }
+
+    return @name_groups;
+}
+
+# split integer into groups for use with thousands, millions, etc.
+# the first 3 groups contain 3 digits and the rest contain 6 digits
+sub _split_groups {
+    my ($int) = @_;
+    my $group_length = 3;
+    my @groups;
+
+    while ($int =~ s[ ( .{1,$group_length} ) $ ][]xms) {
+        unshift @groups, $1;
+    }
+    continue {
+        if (@groups == 4) {
+            $group_length = 6;
+        }
+    }
+
+    return @groups;
+}
+
+# the actual integer to word conversion
+# this expects an integer group of 1 to 3 digits
+sub _convert_group {
+    my ($int) = @_;
+    my @digits = split $EMPTY_STR, defined $int ? $int : $EMPTY_STR;
+    my $digit_count = 0;
+    my @names;
+
+    DIGIT:
+    for my $digit (reverse @digits) {
+        # skip zero unless the whole integer group is zero
+        next DIGIT if $digit == 0 && $int;
+
+        # leave off one for ten and hundred
+        unshift @names, (
+            $digit == 1 && $digit_count ? $EMPTY_STR : $NAMES1[$digit]
+        ) . $NAMES2[$digit_count];
+    }
+    continue {
+        $digit_count++;
+    }
+
+    return @names;
 }
 
 1;
@@ -101,15 +177,17 @@ __END__
 
 Lingua::EO::Numbers - Convert numbers into Esperanto words
 
+=head1 VERSION
+
+This document describes Lingua::EO::Numbers version 0.02.
+
 =head1 SYNOPSIS
 
     use 5.010;
     use Lingua::EO::Numbers qw( num2eo );
 
-    my $nombro = 99;
-
-    while ($nombro >= 0) {
-        say ucfirst num2eo( $nombro-- ), ' boteloj da biero sur la muro.';
+    for my $nombro (reverse 0 .. 99) {
+        say ucfirst num2eo($nombro), ' boteloj da biero sur la muro.';
     }
 
 output:
@@ -162,27 +240,28 @@ The C<:all> tag can be used to import all functions.
 
 =over 4
 
-=item * support one million and greater
-
 =item * support exponential notation
 
 =item * option for setting the input decimal separator
 
 =item * option for setting the input thousands separator
 
-=item * provide POD translation in Esperanto
-
 =back
 
 =head1 SEE ALSO
 
-L<Lingua::EO::Supersignoj>, L<http://bertilow.com/pmeg/gramatiko/nombroj/>
+L<http://bertilow.com/pmeg/gramatiko/nombroj/>, L<Lingua::EO::Supersignoj>
 
 =head1 AUTHOR
 
-Nick Patch, E<lt>n@atemoya.netE<gt>
+Nick Patch <n@atemoya.net>
 
-The interface is based on Sean M. Burke's L<Lingua::EN::Numbers>
+=head1 ACKNOWLEDGEMENTS
+
+MORIYA Masaki (Gardejo) created the Esperanto translation of this document.
+
+Sean M. Burke created the current interface to L<Lingua::EN::Numbers>, which
+this module is based on.
 
 =head1 COPYRIGHT AND LICENSE
 

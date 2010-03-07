@@ -1,6 +1,6 @@
 package Lingua::JBO::Numbers;
 
-use 5.010;
+use 5.008_001;
 use strict;
 use warnings;
 use Readonly;
@@ -10,11 +10,10 @@ use base qw( Exporter );
 our @EXPORT_OK = qw( num2jbo num2jbo_ordinal );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
-Readonly my $SPACE     => q{ };
 Readonly my $EMPTY_STR => q{};
-Readonly my @NAMES1    => qw< no pa re ci vo mu xa ze bi so >;
+Readonly my @NAMES     => qw< no pa re ci vo mu xa ze bi so >;
 Readonly my %WORDS     => (
     '.' => "pi",
     ',' => "ki'o",
@@ -29,42 +28,41 @@ sub num2jbo {
     my @names;
 
     return unless defined $number;
+    return $WORDS{NaN} if $number eq 'NaN';
 
-    given ($number) {
-        when ($_ eq 'NaN') {
-            push @names, $WORDS{NaN};
-        }
-        when (m/^ (?<sign> [-+] )? inf $/ixms) {
-            push @names, $+{sign} ? $WORDS{ $+{sign} } : (), $WORDS{inf};
-        }
-        when (m/^ $RE{num}{real}{-radix=>'[.]'}{-keep} $/xms) {
-            my ($sign, $int, $frac) = ($2, $4, $6);
+    if ($number =~ m/^ ( [-+] )? inf $/ixms) {
+        # infinity
+        push @names, $1 ? $WORDS{$1} : (), $WORDS{inf};
+    }
+    elsif ($number =~ m/^ $RE{num}{real}{-radix=>'[.]'}{-keep} $/xms) {
+        my ($sign, $int, $frac) = ($2, $4, $6);
 
-            push(
-                @names,
-                $WORDS{$sign} || (),
-                map { $NAMES1[$_] } split $EMPTY_STR, $int // $EMPTY_STR,
+        # sign and integer
+        push @names, (
+            $WORDS{$sign} || (),
+            map { $NAMES[$_] } split $EMPTY_STR, defined $int ? $int : $EMPTY_STR,
+        );
+
+        # fraction
+        if (defined $frac && $frac ne $EMPTY_STR) {
+            push @names, (
+                $WORDS{'.'},
+                map { $NAMES[$_] } split $EMPTY_STR, $frac,
             );
-
-            if (defined $frac && $frac ne $EMPTY_STR) {
-                push(
-                    @names,
-                    $WORDS{'.'},
-                    map { $NAMES1[$_] } split $EMPTY_STR, $frac,
-                );
-            }
         }
-        default { return }
+    }
+    else {
+        return;
     }
 
-    return join $SPACE, @names;
+    return join $EMPTY_STR, @names;
 }
 
 sub num2jbo_ordinal {
     my ($number) = @_;
     my $name = num2jbo($number);
+
     return unless defined $name;
-    $name =~ tr{ }{}d;
     return $name . 'moi';
 }
 
@@ -76,22 +74,24 @@ __END__
 
 Lingua::JBO::Numbers - Convert numbers into Lojban words
 
+=head1 VERSION
+
+This document describes Lingua::JBO::Numbers version 0.02.
+
 =head1 SYNOPSIS
 
     use 5.010;
     use Lingua::JBO::Numbers qw( num2jbo );
 
-    my $namcu = 99;
-
-    while ($namcu >= 0) {
-        say '.', num2jbo( $namcu-- ), ' botpi le birje cu cpana le bitmu';
+    for my $namcu (reverse 0 .. 99) {
+        say '.', num2jbo($namcu), ' botpi le birje cu cpana le bitmu';
     }
 
 output:
 
-    .so so botpi le birje cu cpana le bitmu
-    .so bi botpi le birje cu cpana le bitmu
-    .so ze botpi le birje cu cpana le bitmu
+    .soso botpi le birje cu cpana le bitmu
+    .sobi botpi le birje cu cpana le bitmu
+    .soze botpi le birje cu cpana le bitmu
       ...
     .no botpi le birje cu cpana le bitmu
 
@@ -107,13 +107,13 @@ The following functions are provided but are not exported by default.
 
 =over 4
 
-=item num2eo EXPR
+=item num2jbo EXPR
 
 If EXPR looks like a number, the text describing the number is returned.  Both
 integers and real numbers are supported, including negatives.  Special values
 such as "inf" and "NaN" are also supported.
 
-=item num2eo_ordinal EXPR
+=item num2jbo_ordinal EXPR
 
 If EXPR looks like an integer, the text describing the number in ordinal form
 is returned.  The behavior when passing a non-integer value is undefined.
@@ -151,9 +151,12 @@ L<http://www.lojban.org/publications/reference_grammar/chapter18.html>
 
 =head1 AUTHOR
 
-Nick Patch, E<lt>n@atemoya.netE<gt>
+Nick Patch <n@atemoya.net>
 
-The interface is based on Sean M. Burke's L<Lingua::EN::Numbers>
+=head1 ACKNOWLEDGEMENTS
+
+Sean M. Burke created the current interface to L<Lingua::EN::Numbers>, which
+this module is based on.
 
 =head1 COPYRIGHT AND LICENSE
 

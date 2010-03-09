@@ -1,6 +1,6 @@
 ---
 name: Lingua-Conlang-Numbers
-version: 0.3
+version: 0.03
 author:
   - 'Nick Patch <n@atemoya.net>'
 abstract: Convert numbers into words in various constructed languages

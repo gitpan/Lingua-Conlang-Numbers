@@ -2,7 +2,7 @@ use Module::Build;
 
 my $build = Module::Build->new(
     module_name  => 'Lingua::Conlang::Numbers',
-    dist_version => '0.3',
+    dist_version => '0.03',
     license      => 'perl',
     build_requires => {
         'ok'         => '0.01',

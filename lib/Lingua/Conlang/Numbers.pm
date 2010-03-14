@@ -5,17 +5,19 @@ use strict;
 use warnings;
 use Lingua::EO::Numbers       qw( :all );
 use Lingua::JBO::Numbers      qw( :all );
+use Lingua::TLH::Numbers      qw( :all );
 use Lingua::TokiPona::Numbers qw( :all );
 
 use base qw( Exporter );
 our @EXPORT_OK = qw( num2conlang num2conlang_ordinal num2conlang_languages );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
-our $VERSION = '0.02';
+our $VERSION = '0.04';
 
-my @languages = qw< eo jbo tokipona >;
+my @languages = qw< eo jbo tlh tokipona >;
 my %aliases = (
     esperanto => 'eo',
+    klingon   => 'tlh',
     lojban    => 'jbo',
 );
 
@@ -54,7 +56,7 @@ Lingua::Conlang::Numbers - Convert numbers into words in various constructed lan
 
 =head1 VERSION
 
-This document describes Lingua::Conlang::Numbers version 0.02.
+This document describes Lingua::Conlang::Numbers version 0.04.
 
 =head1 SYNOPSIS
 
@@ -124,6 +126,8 @@ provided output.
 
 =item * L<Lingua::JBO::Numbers> - Lojban (jbo)
 
+=item * L<Lingua::TLH::Numbers> - Klingon (tlh)
+
 =item * L<Lingua::TokiPona::Numbers> - Toki Pona
 
 =back
@@ -131,16 +135,21 @@ provided output.
 =head1 TODO
 
 Add support for additional constructed languages including, but not limited
-to: Ido, Interlingua, Klingon, Latino sine Flexione, Loglan, Occidental,
-Quenya, and Volapük.
+to: Ido, Interlingua, Latino sine Flexione, Loglan, Na'vi, Occidental, Quenya,
+and Volapük.
 
 =head1 SEE ALSO
 
-L<Lingua::Any::Numbers>
+L<utf8>, L<Lingua::Any::Numbers>
 
 =head1 AUTHOR
 
-Nick Patch <n@atemoya.net>
+Nick Patch <patch@cpan.org>
+
+=head1 ACKNOWLEDGEMENTS
+
+Sean M. Burke created the current interface to L<Lingua::EN::Numbers>, which
+the included modules are based on.
 
 =head1 COPYRIGHT AND LICENSE
 

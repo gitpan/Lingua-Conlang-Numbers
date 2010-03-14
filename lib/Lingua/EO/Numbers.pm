@@ -11,11 +11,15 @@ use base qw( Exporter );
 our @EXPORT_OK = qw( num2eo num2eo_ordinal );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
-Readonly my $EMPTY_STR     => q{};
-Readonly my $SPACE         => q{ };
-Readonly my $PLURAL_SUFFIX => q{j};
+# up to 999,999 vigintillion (long scale) supported
+Readonly my $MAX_INT_DIGITS => 126;
+
+Readonly my $EMPTY_STR      => q{};
+Readonly my $SPACE          => q{ };
+Readonly my $ORDINAL_SUFFIX => q{a};
+Readonly my $PLURAL_SUFFIX  => q{j};
 
 Readonly my @NAMES1 => qw< nul unu du tri kvar kvin ses sep ok naŭ >;
 Readonly my @NAMES2 => $EMPTY_STR, qw< dek cent >;
@@ -43,15 +47,14 @@ sub num2eo {
     return unless defined $number;
     return $WORDS{NaN} if $number eq 'NaN';
 
-    if ($number =~ m/^ ( [-+] )? inf $/ixms) {
+    if ($number =~ m/^ ( [-+] )? inf $/ix) {
         # infinity
         push @names, $1 ? $WORDS{$1} : (), $WORDS{inf};
     }
-    elsif ($number =~ m/^ $RE{num}{real}{-radix=>'[,.]'}{-keep} $/xms) {
+    elsif ($number =~ m/^ $RE{num}{real}{-radix=>'[,.]'}{-keep} $/x) {
         my ($sign, $int, $frac) = ($2, $4, $6);
 
-        # greater than 999,999 vigintillion (long scale) not supported
-        return if length $int > 126;
+        return if length $int > $MAX_INT_DIGITS;
 
         # sign and integer
         unshift @names, $WORDS{$sign} || (), _convert_int($int);
@@ -79,11 +82,11 @@ sub num2eo_ordinal {
     return unless defined $name;
 
     for ($name) {
-        s{ (?: oj? | a ) \b }{}gxms; # remove word suffixes
+        s{ (?: oj? | a ) \b }{}gx; # remove word suffixes
         tr{ }{-};
     }
 
-    return $name . 'a';
+    return $name . $ORDINAL_SUFFIX;
 }
 
 # convert integers to words
@@ -95,8 +98,8 @@ sub _convert_int {
 
     GROUP:
     for my $group (reverse @number_groups) {
-        # skip zeros unless the whole integer is zero
-        next GROUP if $group == 0 && $int;
+        # skip zeros unless it is the only digit
+        next GROUP if $group == 0 && $int != 0;
 
         my $type = $GROUPS[$group_count];
 
@@ -130,7 +133,7 @@ sub _split_groups {
     my $group_length = 3;
     my @groups;
 
-    while ($int =~ s[ ( .{1,$group_length} ) $ ][]xms) {
+    while ($int =~ s[ ( .{1,$group_length} ) $ ][]x) {
         unshift @groups, $1;
     }
     continue {
@@ -152,8 +155,8 @@ sub _convert_group {
 
     DIGIT:
     for my $digit (reverse @digits) {
-        # skip zero unless the whole integer group is zero
-        next DIGIT if $digit == 0 && $int;
+        # skip zero unless it is the only digit
+        next DIGIT if $digit == 0 && $int != 0;
 
         # leave off one for ten and hundred
         unshift @names, (
@@ -179,7 +182,7 @@ Lingua::EO::Numbers - Convert numbers into Esperanto words
 
 =head1 VERSION
 
-This document describes Lingua::EO::Numbers version 0.02.
+This document describes Lingua::EO::Numbers version 0.03.
 
 =head1 SYNOPSIS
 
@@ -250,18 +253,17 @@ The C<:all> tag can be used to import all functions.
 
 =head1 SEE ALSO
 
-L<http://bertilow.com/pmeg/gramatiko/nombroj/>, L<Lingua::EO::Supersignoj>
+L<Lingua::EO::Numbers::EO>, L<Lingua::Conlang::Numbers>,
+L<http://bertilow.com/pmeg/gramatiko/nombroj/>, L<utf8>,
+L<Lingua::EO::Orthography>
 
 =head1 AUTHOR
 
-Nick Patch <n@atemoya.net>
+Nick Patch <patch@cpan.org>
 
 =head1 ACKNOWLEDGEMENTS
 
 MORIYA Masaki (Gardejo) created the Esperanto translation of this document.
-
-Sean M. Burke created the current interface to L<Lingua::EN::Numbers>, which
-this module is based on.
 
 =head1 COPYRIGHT AND LICENSE
 

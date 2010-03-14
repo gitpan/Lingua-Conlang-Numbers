@@ -10,11 +10,13 @@ use base qw( Exporter );
 our @EXPORT_OK = qw( num2jbo num2jbo_ordinal );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
-Readonly my $EMPTY_STR => q{};
-Readonly my @NAMES     => qw< no pa re ci vo mu xa ze bi so >;
-Readonly my %WORDS     => (
+Readonly my $EMPTY_STR      => q{};
+Readonly my $ORDINAL_SUFFIX => q{moi};
+
+Readonly my @NAMES => qw< no pa re ci vo mu xa ze bi so >;
+Readonly my %WORDS => (
     '.' => "pi",
     ',' => "ki'o",
     '-' => "ni'u",
@@ -30,11 +32,11 @@ sub num2jbo {
     return unless defined $number;
     return $WORDS{NaN} if $number eq 'NaN';
 
-    if ($number =~ m/^ ( [-+] )? inf $/ixms) {
+    if ($number =~ m/^ ( [-+] )? inf $/ix) {
         # infinity
         push @names, $1 ? $WORDS{$1} : (), $WORDS{inf};
     }
-    elsif ($number =~ m/^ $RE{num}{real}{-radix=>'[.]'}{-keep} $/xms) {
+    elsif ($number =~ m/^ $RE{num}{real}{-keep} $/x) {
         my ($sign, $int, $frac) = ($2, $4, $6);
 
         # sign and integer
@@ -63,7 +65,7 @@ sub num2jbo_ordinal {
     my $name = num2jbo($number);
 
     return unless defined $name;
-    return $name . 'moi';
+    return $name . $ORDINAL_SUFFIX;
 }
 
 1;
@@ -76,7 +78,7 @@ Lingua::JBO::Numbers - Convert numbers into Lojban words
 
 =head1 VERSION
 
-This document describes Lingua::JBO::Numbers version 0.02.
+This document describes Lingua::JBO::Numbers version 0.03.
 
 =head1 SYNOPSIS
 
@@ -147,16 +149,12 @@ The C<:all> tag can be used to import all functions.
 
 =head1 SEE ALSO
 
+L<Lingua::Conlang::Numbers>,
 L<http://www.lojban.org/publications/reference_grammar/chapter18.html>
 
 =head1 AUTHOR
 
-Nick Patch <n@atemoya.net>
-
-=head1 ACKNOWLEDGEMENTS
-
-Sean M. Burke created the current interface to L<Lingua::EN::Numbers>, which
-this module is based on.
+Nick Patch <patch@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
